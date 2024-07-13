@@ -8,6 +8,7 @@ const router = express.Router();
 //Para Insertar los datos basicos en la base de datos
 router.post("/add_persona", async (req, res) => {
   const { email } = req.body;
+
   // Verificar si el email ya existe
   const checkEmailSql = "SELECT * FROM persona WHERE email = ?";
   con.query(checkEmailSql, [email], (err, results) => {
@@ -158,7 +159,22 @@ router.post(
           });
         }
         const id = result.insertId;
-        return res.json({ status: true, result: result, id: id });
+
+        // Aquí se hace la consulta UPDATE para cambiar el estado en la tabla usuario
+        const sqlUpdate = `UPDATE usuario SET estado = 1 WHERE id = ?`;
+        const valuesUpdate = [usuarioId];
+
+        con.query(sqlUpdate, valuesUpdate, (errUpdate, resultUpdate) => {
+          if (errUpdate) {
+            return res.json({
+              status: false,
+              Error:
+                "Error en la actualización del estado del usuario:" + errUpdate,
+            });
+          }
+
+          return res.json({ status: true, result: result, id: id });
+        });
       });
     } catch (error) {
       return res.json({ status: false, Error: "Error:" + error.message });
@@ -181,7 +197,7 @@ router.get("/verestudiosPostGrado/:id", (req, res) => {
 router.get("/verlaboral/:id", (req, res) => {
   const id = req.params.id;
   const sql =
-    "SELECT actividadlaboral.id AS actividadLaboralId, actividadlaboral.*, estadoactividadlaboral.* FROM actividadlaboral LEFT JOIN estadoactividadlaboral ON actividadlaboral.estadoActividadLaboralId = estadoactividadlaboral.id WHERE actividadlaboral.tituladoId = ?";
+    "SELECT actividadlaboral.id AS actividadLaboralId, actividadlaboral.* FROM actividadlaboral  WHERE actividadlaboral.tituladoId = ?";
   con.query(sql, [id], (err, result) => {
     if (err) return res.json({ status: false, error: "Hay un error" + err });
 
@@ -210,21 +226,288 @@ router.get("/verproduccionesIntelectuales/:id", (req, res) => {
       produccionintelectual.institucionProduccion, 
       produccionintelectual.tituladoId, 
       produccionintelectual.publicacionId,
-      -- Añade aquí los demás campos de produccionintelectual que necesites
+      produccionintelectual.formaTrabajoProduccionId,
+      produccionintelectual.activo,
       publicacion.*,
       formatrabajoproduccion.* 
     FROM produccionintelectual 
-    LEFT JOIN formatrabajoproduccion ON produccionintelectual.publicacionId = formatrabajoproduccion.id 
+    LEFT JOIN formatrabajoproduccion ON produccionintelectual.formaTrabajoProduccionId = formatrabajoproduccion.id 
     LEFT JOIN publicacion ON produccionintelectual.publicacionId = publicacion.id 
     WHERE produccionintelectual.tituladoId = ?
   `;
   con.query(sql, [id], (err, result) => {
     if (err) return res.json({ status: false, error: "Hay un error" + err });
-
-    // Log para verificar el resultado de la consulta
-    console.log("Resultado de la consulta:", result);
     return res.json({ result, status: true });
   });
 });
+
+//Para eliminar el titulado
+router.delete("/borrar_titulado/:id", (req, res) => {
+  const id = req.params.id;
+  const { usuarioId, personaId, adminId } = req.body;
+
+  // Eliminar registros relacionados en estudiopostgrado
+  const deleteEstudioPostgradoSql =
+    "UPDATE estudiopostgrado SET activo = FALSE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE tituladoId = ?";
+  con.query(
+    deleteEstudioPostgradoSql,
+    [adminId, id],
+    (errEstudioPostgrado, resultEstudioPostgrado) => {
+      if (errEstudioPostgrado) {
+        return res.json({
+          status: false,
+          Error:
+            "Error al eliminar registros en estudiopostgrado: " +
+            errEstudioPostgrado,
+        });
+      }
+      // Eliminar registros relacionados en investigacion
+      const deleteInvestigacionSql =
+        "UPDATE investigacion SET activo = FALSE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE tituladoId = ?";
+      con.query(
+        deleteInvestigacionSql,
+        [adminId, id],
+        (errInvestigacion, resultInvestigacion) => {
+          if (errInvestigacion) {
+            return res.json({
+              status: false,
+              Error:
+                "Error al eliminar registros en investigacion: " +
+                errInvestigacion,
+            });
+          }
+
+          // Eliminar registros relacionados en actividadLaboral
+          const deleteActividadLaboralSql =
+            "UPDATE actividadlaboral SET activo = FALSE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE tituladoId = ?";
+          con.query(
+            deleteActividadLaboralSql,
+            [adminId, id],
+            (errActividadLaboral, resultActividadLaboral) => {
+              if (errActividadLaboral) {
+                return res.json({
+                  status: false,
+                  Error:
+                    "Error al eliminar registros en actividadLaboral: " +
+                    errActividadLaboral,
+                });
+              }
+
+              // Eliminar registros relacionados en produccion intelectual
+              const deleteProduccionIntelectualSql =
+                "UPDATE produccionintelectual SET activo = FALSE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE tituladoId = ?";
+              con.query(
+                deleteProduccionIntelectualSql,
+                [adminId, id],
+                (errProduccionIntelectual, resultProduccionIntelectual) => {
+                  if (errProduccionIntelectual) {
+                    return res.json({
+                      status: false,
+                      Error:
+                        "Error al eliminar registros en produccion intelectual: " +
+                        errProduccionIntelectual,
+                    });
+                  }
+
+                  // Eliminar Titulado
+                  const deleteTituladoSql =
+                    "UPDATE titulado SET activo = FALSE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE id = ?";
+                  con.query(
+                    deleteTituladoSql,
+                    [adminId, id],
+                    (errTitulado, resultTitulado) => {
+                      if (errTitulado) {
+                        return res.json({
+                          status: false,
+                          Error: "Error al eliminar titulado: " + errTitulado,
+                        });
+                      }
+
+                      // Eliminar el usuario
+                      const updateUsuarioSql =
+                        "UPDATE usuario SET activo = FALSE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE id = ?";
+                      con.query(
+                        updateUsuarioSql,
+                        [adminId, usuarioId],
+                        (errUsuario, resultUsuario) => {
+                          if (errUsuario) {
+                            return res.json({
+                              status: false,
+                              Error: "Error al marcar usuario: " + errUsuario,
+                            });
+                          }
+                          // Eliminar la persona
+                          const deleteTituladoSql =
+                            "UPDATE persona SET activo = FALSE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE id = ?";
+                          con.query(
+                            deleteTituladoSql,
+                            [adminId, personaId],
+                            (errPersona, resultPersona) => {
+                              if (errTitulado) {
+                                return res.json({
+                                  status: false,
+                                  Error:
+                                    "Error al eliminar titulado: " + errPersona,
+                                });
+                              }
+
+                              res.json({
+                                status: true,
+                                message:
+                                  "Usuario marcado como inactivo y adminId registrado correctamente.",
+                              });
+                            }
+                          );
+                        }
+                      );
+                    }
+                  );
+                }
+              );
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+//Para Eliminar el Titulado
+// router.delete("/borrar_titulado/:id", (req, res) => {
+//   const id = req.params.id;
+//   const { usuarioId, personaId } = req.body;
+//   console.log(usuarioId);
+//   console.log(personaId);
+
+//   // Eliminar registros relacionados en estudiopostgrado
+//   const deleteEstudioPostgradoSql =
+//     "DELETE FROM estudiopostgrado WHERE tituladoId = ?";
+//   con.query(
+//     deleteEstudioPostgradoSql,
+//     [id],
+//     (errEstudioPostgrado, resultEstudioPostgrado) => {
+//       if (errEstudioPostgrado) {
+//         return res.json({
+//           status: false,
+//           Error:
+//             "Error al eliminar registros en estudiopostgrado: " +
+//             errEstudioPostgrado,
+//         });
+//       }
+
+//       // Eliminar registros relacionados en investigacion
+//       const deleteInvestigacionSql =
+//         "DELETE FROM investigacion WHERE tituladoId = ?";
+//       con.query(
+//         deleteInvestigacionSql,
+//         [id],
+//         (errInvestigacion, resultInvestigacion) => {
+//           if (errInvestigacion) {
+//             return res.json({
+//               status: false,
+//               Error:
+//                 "Error al eliminar registros en investigacion: " +
+//                 errInvestigacion,
+//             });
+//           }
+
+//           // Eliminar registros relacionados en actividadLaboral
+//           const deleteActividadLaboralSql =
+//             "DELETE FROM actividadLaboral WHERE tituladoId = ?";
+//           con.query(
+//             deleteActividadLaboralSql,
+//             [id],
+//             (errActividadLaboral, resultActividadLaboral) => {
+//               if (errActividadLaboral) {
+//                 return res.json({
+//                   status: false,
+//                   Error:
+//                     "Error al eliminar registros en actividadLaboral: " +
+//                     errActividadLaboral,
+//                 });
+//               }
+
+//               // Eliminar registros relacionados en produccion intelectual
+//               const deleteProduccionIntelectualSql =
+//                 "DELETE FROM produccionintelectual WHERE tituladoId = ?";
+//               con.query(
+//                 deleteProduccionIntelectualSql,
+//                 [id],
+//                 (errProduccionIntelectual, resultProduccionIntelectual) => {
+//                   if (errProduccionIntelectual) {
+//                     return res.json({
+//                       status: false,
+//                       Error:
+//                         "Error al eliminar registros en produccion intelectual: " +
+//                         errProduccionIntelectual,
+//                     });
+//                   }
+//                   // Eliminar el titulado
+//                   const deleteTituladoSql = "DELETE FROM titulado WHERE id = ?";
+//                   con.query(
+//                     deleteTituladoSql,
+//                     [id],
+//                     (errTitulado, resultTitulado) => {
+//                       if (errTitulado) {
+//                         return res.json({
+//                           status: false,
+//                           Error: "Error al eliminar titulado: " + errTitulado,
+//                         });
+//                       }
+//                       // Eliminar el usuario
+//                       const deleteTituladoSql =
+//                         "DELETE FROM usuario WHERE id = ?";
+//                       con.query(
+//                         deleteTituladoSql,
+//                         [usuarioId],
+//                         (errTUsuario, resultUsuario) => {
+//                           if (errTitulado) {
+//                             return res.json({
+//                               status: false,
+//                               Error:
+//                                 "Error al eliminar titulado: " + errTUsuario,
+//                             });
+//                           }
+
+//                           // Eliminar la persona
+//                           const deleteTituladoSql =
+//                             "DELETE FROM persona WHERE id = ?";
+//                           con.query(
+//                             deleteTituladoSql,
+//                             [personaId],
+//                             (errPersona, resultPersona) => {
+//                               if (errTitulado) {
+//                                 return res.json({
+//                                   status: false,
+//                                   Error:
+//                                     "Error al eliminar titulado: " + errPersona,
+//                                 });
+//                               }
+
+//                               return res.json({
+//                                 status: true,
+//                                 resultTitulado,
+//                                 resultUsuario,
+//                                 resultPersona,
+//                                 resultEstudioPostgrado,
+//                                 resultInvestigacion,
+//                                 resultActividadLaboral,
+//                                 resultProduccionIntelectual,
+//                               });
+//                             }
+//                           );
+//                         }
+//                       );
+//                     }
+//                   );
+//                 }
+//               );
+//             }
+//           );
+//         }
+//       );
+//     }
+//   );
+// });
 
 export { router as tituladoRouter };

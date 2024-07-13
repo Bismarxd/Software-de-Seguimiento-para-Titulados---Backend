@@ -70,7 +70,7 @@ router.put("/editar_estudio_titulado/:id", (req, res) => {
   const id = req.params.id;
 
   const sql = `UPDATE estudiopostgrado 
-                set aInicioPostGrado = ?, tituloCursoPostGrado = ?, modalidadGraduacionPostGrado = ?, aGraduacionPostGrado = ?, gradoAcademicoPostGrado = ?, tipoEstudioPostGrado = ?, tituloTrabajoPostGrado = ?, tituladoId = ? Where id = ?`;
+                set aInicioPostGrado = ?, tituloCursoPostGrado = ?, modalidadGraduacionPostGrado = ?, aGraduacionPostGrado = ?, gradoAcademicoPostGrado = ?, tipoEstudioPostGrado = ?, tituloTrabajoPostGrado = ?, tituladoId = ?, modified_by = ? Where id = ?`;
   const values = [
     req.body.aInicioPostGrado,
     req.body.tituloCursoPostGrado,
@@ -80,6 +80,7 @@ router.put("/editar_estudio_titulado/:id", (req, res) => {
     req.body.tipoEstudioPostGrado,
     req.body.tituloTrabajoPostGrado,
     req.body.tituladoId,
+    req.body.adminId,
   ];
   con.query(sql, [...values, id], (err, result) => {
     if (err) return res.json({ status: false, Error: "Query Error" + err });
@@ -90,8 +91,10 @@ router.put("/editar_estudio_titulado/:id", (req, res) => {
 //Para eliminar estudio postgardo
 router.delete("/eliminar_estudio/:id", (req, res) => {
   const id = req.params.id;
-  const sql = "delete from estudiopostgrado where id = ?";
-  con.query(sql, [id], (err, result) => {
+  const { adminId } = req.body;
+  const sql =
+    "UPDATE estudiopostgrado SET activo = FALSE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? where id = ?";
+  con.query(sql, [adminId, id], (err, result) => {
     if (err)
       return res.json({ status: false, Error: "Error en la consulta" + err });
     return res.json({ status: true, result: result });
@@ -139,7 +142,7 @@ router.put("/editar_laboral_titulado/:id", (req, res) => {
   const id = req.params.id;
 
   const sql = `UPDATE actividadlaboral
-                set aIngresoTrabajo = ?, aFinalisacionTrabajo = ?, estaTrabajando = ?, cargoOTareaTrabajo = ?, duracionTrabajo = ?, institucionTrabajo = ?, estadoActividadLaboralId = ?, tituladoId = ? Where id = ?`;
+                set aIngresoTrabajo = ?, aFinalisacionTrabajo = ?, estaTrabajando = ?, cargoOTareaTrabajo = ?, duracionTrabajo = ?, institucionTrabajo = ?, estadoActividadLaboralId = ?, tituladoId = ?, modified_by = ? Where id = ?`;
   const values = [
     req.body.aIngresoTrabajo,
     req.body.aFinalisacionTrabajo,
@@ -149,6 +152,7 @@ router.put("/editar_laboral_titulado/:id", (req, res) => {
     req.body.institucionTrabajo,
     req.body.estadoActividadLaboralId,
     req.body.tituladoId,
+    req.body.adminId,
   ];
   con.query(sql, [...values, id], (err, result) => {
     if (err) return res.json({ status: false, Error: "Query Error" + err });
@@ -185,8 +189,10 @@ router.get("/estado_laboral/:id", (req, res) => {
 //Para eliminar las activiades laborales
 router.delete("/eliminar_laborales/:id", (req, res) => {
   const id = req.params.id;
-  const sql = "delete from actividadlaboral where id = ?";
-  con.query(sql, [id], (err, result) => {
+  const { adminId } = req.body;
+  const sql =
+    "UPDATE actividadlaboral SET activo = FALSE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? where id = ?";
+  con.query(sql, [adminId, id], (err, result) => {
     if (err)
       return res.json({ status: false, Error: "Error en la consulta" + err });
     return res.json({ status: true, result: result });
@@ -231,13 +237,14 @@ router.put("/editar_investigacion_titulado/:id", (req, res) => {
   const id = req.params.id;
 
   const sql = `UPDATE investigacion 
-                set aInvestigacion = ?, temaInvestigacion = ?, institucionInvestigacion = ?, publicacionId = ?, tituladoId = ? Where id = ?`;
+                set aInvestigacion = ?, temaInvestigacion = ?, institucionInvestigacion = ?, publicacionId = ?, tituladoId = ?, modified_by = ? Where id = ?`;
   const values = [
     req.body.aInvestigacion,
     req.body.temaInvestigacion,
     req.body.institucionInvestigacion,
     req.body.publicacionId,
     req.body.tituladoId,
+    req.body.adminId,
   ];
   con.query(sql, [...values, id], (err, result) => {
     if (err) return res.json({ status: false, Error: "Query Error" + err });
@@ -248,8 +255,10 @@ router.put("/editar_investigacion_titulado/:id", (req, res) => {
 //Para eliminar las investigaciones
 router.delete("/eliminar_investigacion/:id", (req, res) => {
   const id = req.params.id;
-  const sql = "delete from investigacion where id = ?";
-  con.query(sql, [id], (err, result) => {
+  const { adminId } = req.body;
+  const sql =
+    "UPDATE investigacion SET activo = FALSE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? where id = ?";
+  con.query(sql, [adminId, id], (err, result) => {
     if (err)
       return res.json({ status: false, Error: "Error en la consulta" + err });
     return res.json({ status: true, result: result });
@@ -347,7 +356,7 @@ router.put("/editar_produccion_titulado/:id", (req, res) => {
   const id = req.params.id;
 
   const sql = `UPDATE produccionintelectual 
-                set aProduccion = ?, temaProduccion = ?, institucionProduccion = ?, publicacionId = ?, formaTrabajoProduccionId = ?, tituladoId = ? Where id = ?`;
+                set aProduccion = ?, temaProduccion = ?, institucionProduccion = ?, publicacionId = ?, formaTrabajoProduccionId = ?, tituladoId = ?, modified_by = ? Where id = ?`;
   const values = [
     req.body.aProduccion,
     req.body.temaProduccion,
@@ -355,6 +364,7 @@ router.put("/editar_produccion_titulado/:id", (req, res) => {
     req.body.publicacionId,
     req.body.formaTrabajoProduccionId,
     req.body.tituladoId,
+    req.body.adminId,
   ];
   con.query(sql, [...values, id], (err, result) => {
     if (err) return res.json({ status: false, Error: "Query Error" + err });
@@ -365,8 +375,10 @@ router.put("/editar_produccion_titulado/:id", (req, res) => {
 //Para eliminar las producciones intelectuales
 router.delete("/eliminar_produccion/:id", (req, res) => {
   const id = req.params.id;
-  const sql = "delete from produccionintelectual where id = ?";
-  con.query(sql, [id], (err, result) => {
+  const { adminId } = req.body;
+  const sql =
+    "UPDATE produccionintelectual SET activo = FALSE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? where id = ?";
+  con.query(sql, [adminId, id], (err, result) => {
     if (err)
       return res.json({ status: false, Error: "Error en la consulta" + err });
     return res.json({ status: true, result: result });

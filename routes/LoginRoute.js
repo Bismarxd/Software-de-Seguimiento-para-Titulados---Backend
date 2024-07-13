@@ -27,8 +27,6 @@ router.post("/login", (req, res) => {
           // Verificar si el usuario es administrador o no
           const role =
             result[0].administrador === 1 ? "administrador" : "usuarioTitulado";
-          // Imprimir el tipo de rol en la consola
-          console.log("Rol del usuario:", role);
 
           const token = jwt.sign(
             { role: role, email: email, id: result[0].id },
@@ -36,7 +34,12 @@ router.post("/login", (req, res) => {
             { expiresIn: "1d" }
           );
           res.cookie("token", token);
-          return res.json({ loginStatus: true, result: result });
+          return res.json({
+            loginStatus: true,
+            result: result,
+            token: token,
+            role: role,
+          });
         } else {
           return res.json({
             loginStatus: false,

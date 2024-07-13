@@ -1,7 +1,7 @@
 import express from "express";
 import con from "../utils/db.js";
 
-const router = express.Router()
+const router = express.Router();
 
 //para obtener las ofertas laborales
 router.get("/obtener_ofertas", (req, res) => {
@@ -47,7 +47,7 @@ router.post("/add_ofertas", (req, res) => {
 });
 
 //Para actualizar el estado
-router.post('/editar_estado/:id', (req, res) => {
+router.post("/editar_estado/:id", (req, res) => {
   const id = req.params.id;
   const nuevoEstado = req.body.estado;
 
@@ -55,10 +55,10 @@ router.post('/editar_estado/:id', (req, res) => {
   const values = [nuevoEstado, id];
 
   con.query(sql, values, (err, result) => {
-    if(err) return res.json({status: false, Error: "Query Error" + err});
-    return res.json({status: true, result: result})
-  })
-})
+    if (err) return res.json({ status: false, Error: "Query Error" + err });
+    return res.json({ status: true, result: result });
+  });
+});
 
 //para obtener ls ofertas laborales
 router.get("/obtener_oferta/:id", (req, res) => {
@@ -73,9 +73,9 @@ router.get("/obtener_oferta/:id", (req, res) => {
 //para editar las ofertas laborales
 router.put("/editar_oferta/:id", (req, res) => {
   const id = req.params.id;
-  
+
   const sql = `UPDATE ofertaslaborales 
-                set titulo = ?, descripcion = ?, empresa = ?, ubicacion = ?, salario = ?, fechaVencimiento = ?, telefono = ?
+                set titulo = ?, descripcion = ?, empresa = ?, ubicacion = ?, salario = ?, fechaVencimiento = ?, telefono = ?, modified_by = ?
                 Where id = ?`;
   const values = [
     req.body.titulo,
@@ -83,8 +83,9 @@ router.put("/editar_oferta/:id", (req, res) => {
     req.body.empresa,
     req.body.ubicacion,
     req.body.salario,
-    req.body.fechaVencimiento ,
-    req.body.telefono
+    req.body.fechaVencimiento,
+    req.body.telefono,
+    req.body.adminId,
   ];
   con.query(sql, [...values, id], (err, result) => {
     if (err) return res.json({ status: false, Error: "Query Error" + err });
@@ -95,8 +96,11 @@ router.put("/editar_oferta/:id", (req, res) => {
 //Para borrar ofertas
 router.delete("/eliminar_oferta/:id", (req, res) => {
   const id = req.params.id;
-  const sql = "delete from ofertaslaborales where id = ?";
-  con.query(sql, [id], (err, result) => {
+  const { adminId } = req.body;
+  console.log(adminId);
+  const sql =
+    "UPDATE ofertaslaborales SET activo = FALSE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE id = ?";
+  con.query(sql, [adminId, id], (err, result) => {
     if (err)
       return res.json({ status: false, Error: "Error en la consulta" + err });
     return res.json({ status: true, result: result });
@@ -105,8 +109,7 @@ router.delete("/eliminar_oferta/:id", (req, res) => {
 
 //Para obtener la cantidad de ofertas
 router.get("/cantidad_ofertas", (req, res) => {
-  const sql =
-    "SELECT COUNT(*) AS cantidad FROM ofertaslaborales";
+  const sql = "SELECT COUNT(*) AS cantidad FROM ofertaslaborales";
   con.query(sql, (err, result) => {
     if (err) return res.json({ status: false, Error: "Error en la consulta" });
     return res.json({
@@ -117,5 +120,4 @@ router.get("/cantidad_ofertas", (req, res) => {
   });
 });
 
-export {router as ofertasRouter}
-
+export { router as ofertasRouter };

@@ -18,7 +18,8 @@ router.get("/cantidad_titulados", (req, res) => {
 
 //Para obtener la cantidad de administradores
 router.get("/cantidad_administradores", (req, res) => {
-  const sql = "SELECT COUNT(*) AS cantidad FROM administrador";
+  const sql =
+    "SELECT COUNT(*) AS cantidad FROM usuario Where administrador = 1";
   con.query(sql, (err, result) => {
     if (err) return res.json({ status: false, Error: "Error en la consulta" });
     return res.json({

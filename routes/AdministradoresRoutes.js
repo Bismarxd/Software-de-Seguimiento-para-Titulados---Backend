@@ -6,7 +6,8 @@ const router = express.Router();
 
 //Para obtener la cantidad de administradores
 router.get("/cantidad_administradores", (req, res) => {
-  const sql = "SELECT COUNT(*) AS cantidad FROM administrador";
+  const sql =
+    "SELECT COUNT(*) AS cantidad FROM usuario Where administrador = 1";
   con.query(sql, (err, result) => {
     if (err) return res.json({ status: false, Error: "Error en la consulta" });
     return res.json({
@@ -17,6 +18,7 @@ router.get("/cantidad_administradores", (req, res) => {
   });
 });
 
+//Para otener los grados academicos
 router.get("/grados_academicos", (req, res) => {
   const sql = "SELECT * from gradoacademico";
   con.query(sql, (err, result) => {
@@ -83,12 +85,12 @@ router.post("/add_persona_administrador", async (req, res) => {
   });
 });
 
-//Para Insertar el usuario en base a la persona
+//Para Insertar el usuario del administrador en base a la persona
 router.post("/add_usuario_administrador", async (req, res) => {
   const personaId = req.body.personaId;
   const personaQuery = `SELECT email, ci FROM persona WHERE id = ?`;
 
-  con.query(personaQuery, [personaId], (err, rows) => {
+  con.query(personaQuery, [personaId], async (err, rows) => {
     if (err) {
       return res.json({
         status: false,
@@ -104,12 +106,15 @@ router.post("/add_usuario_administrador", async (req, res) => {
     const email = rows[0].email;
     const ci = rows[0].ci;
 
+    // Hashear la contraseña
+    const hashedPassword = await bcrypt.hash(ci, 10);
+
     //construir los valores para la insercion en la tabla usuario
     const sql = `INSERT INTO usuario (nombreUsuario, password, estado, administrador, personaId) VALUES (?, ?, ?, ?, ?)`;
 
     const values = [
       (req.body.nombreUsuario = email),
-      (req.body.password = ci),
+      (req.body.password = hashedPassword),
       (req.body.estado = 1),
       (req.body.administrador = 1),
       req.body.personaId,
@@ -133,12 +138,12 @@ router.post("/add_cargo_administrador", async (req, res) => {
   try {
     const usuarioId = req.body.usuarioId;
 
-    const sql = `INSERT INTO cargo (tituloCargo, descripcionCargo, fechaFinal, usuarioId) VALUES (?, ?, ?, ?)`;
+    const sql = `INSERT INTO administrador (tituloCargo, descripcionCargo, tipoAdministrador, usuarioId) VALUES (?, ?, ?, ?)`;
 
     const values = [
       req.body.tituloCargo,
       req.body.descripcionCargo,
-      req.body.fechaFinal,
+      req.body.tipoAdministrador,
       usuarioId,
     ];
 
@@ -160,7 +165,7 @@ router.post("/add_cargo_administrador", async (req, res) => {
 //Para obtener los administradores
 router.get("/obtener_administradores", (req, res) => {
   const sql =
-    "SELECT persona.*, usuario.*, cargo.* FROM persona LEFT JOIN usuario ON persona.id = usuario.personaId LEFT JOIN cargo ON usuario.id = cargo.usuarioId";
+    "SELECT persona.*, usuario.*, administrador.* FROM persona LEFT JOIN usuario ON persona.id = usuario.personaId LEFT JOIN administrador ON usuario.id = administrador.usuarioId";
   con.query(sql, (err, result) => {
     if (err) return res.json({ status: false, Error: "Error en la consulta" });
     return res.json({ status: true, result: result });
@@ -191,7 +196,7 @@ router.put("/editar_datos_basicos_administardor/:id", async (req, res) => {
   });
 });
 
-//para editar la contraseña
+//para editar la contraseña del administrador
 router.put("/editar_password_administardor/:id", async (req, res) => {
   const { id } = req.params;
   const { password } = req.body;
@@ -218,14 +223,14 @@ router.put("/editar_password_administardor/:id", async (req, res) => {
   });
 });
 
-//obtener los datos  del Titulado del Perfil
+//obtener los datos  del administrador
 router.get("/obtener_admninistrador/:id", (req, res) => {
   const id = req.params.id;
   const sql =
-    "SELECT persona.*, usuario.*, cargo.*" +
+    "SELECT persona.*, usuario.*, administrador.*" +
     "FROM persona " +
     "LEFT JOIN usuario ON persona.id = usuario.personaId " +
-    "LEFT JOIN cargo ON usuario.id = cargo.usuarioId " +
+    "LEFT JOIN administrador ON usuario.id = administrador.usuarioId " +
     "WHERE usuario.id = ?";
   con.query(sql, [id], (err, result) => {
     if (err) return res.json({ status: false, error: "Hay un error" + err });
@@ -236,9 +241,10 @@ router.get("/obtener_admninistrador/:id", (req, res) => {
 //Para eliminar el administrador
 router.delete("/eliminar_administrador/:id", (req, res) => {
   const id = req.params.id;
+  const { adminId } = req.body;
   const borrarCargo =
-    "DELETE cargo FROM cargo JOIN usuario ON cargo.usuarioId = usuario.id WHERE usuario.personaId = ?";
-  con.query(borrarCargo, [id], (errCargo, resultCargo) => {
+    "UPDATE administrador JOIN usuario ON administrador.usuarioId = usuario.id SET administrador.activo = FALSE, administrador.deleted_at = CURRENT_TIMESTAMP, administrador.deleted_by = ? WHERE usuario.personaId = ?";
+  con.query(borrarCargo, [adminId, id], (errCargo, resultCargo) => {
     if (errCargo) {
       return res.json({
         status: false,
@@ -247,7 +253,8 @@ router.delete("/eliminar_administrador/:id", (req, res) => {
     }
 
     //Eliminar el usuario
-    const borrarUsuario = "DELETE usuario FROM usuario WHERE personaId =?";
+    const borrarUsuario =
+      "UPDATE usuario SET activo = FALSE WHERE personaId = ?";
     con.query(borrarUsuario, [id], (errUsuario, resultUsuario) => {
       if (errUsuario) {
         return res.json({
@@ -256,7 +263,7 @@ router.delete("/eliminar_administrador/:id", (req, res) => {
         });
       }
       //Eliminar la persona
-      const borrarPersona = "DELETE persona FROM persona WHERE id =?";
+      const borrarPersona = "UPDATE persona SET activo = FALSE WHERE id = ?";
       con.query(borrarPersona, [id], (errPersona, resultPersona) => {
         if (errPersona) {
           return res.json({
@@ -272,6 +279,37 @@ router.delete("/eliminar_administrador/:id", (req, res) => {
         });
       });
     });
+  });
+});
+
+//obtener el administrador
+router.get("/obtener_administrador/:id", (req, res) => {
+  const id = req.params.id;
+  const sql = "SELECT administrador.* FROM administrador WHERE id = ?";
+  con.query(sql, [id], (err, result) => {
+    if (err) return res.json({ status: false, error: "Hay un error" + err });
+    return res.json({ result, status: true });
+  });
+});
+
+//para actualizar el administardor
+//para editar el administrador
+router.put("/editar_cargo_administrador/:id", async (req, res) => {
+  const id = req.params.id;
+  const { adminId } = req.body;
+
+  const sql = `UPDATE administrador 
+              set tituloCargo = ?, descripcionCargo = ?, tipoAdministrador = ?, modified_by = ?
+              Where id = ?`;
+  const values = [
+    req.body.tituloCargo,
+    req.body.descripcionCargo,
+    req.body.tipoAdministrador,
+    req.body.adminId,
+  ];
+  con.query(sql, [...values, id], (err, result) => {
+    if (err) return res.json({ status: false, Error: "Query Error" + err });
+    return res.json({ status: true, result: result });
   });
 });
 
